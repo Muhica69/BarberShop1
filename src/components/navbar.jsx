@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 function Navbar() {
@@ -11,7 +11,7 @@ function Navbar() {
   }, []);
 
   return (
-    <nav className=" w-full flex flex-row justify-around items-center py-5 px-10 backdrop-blur-sm bg-black/20 text-white shadow">
+    <nav className="w-full flex flex-row justify-around items-center py-5 px-10 backdrop-blur-sm bg-black/20 text-white shadow">
       <ul className="flex flex-row items-center space-x-6">
         <li>
           <a href="#about" className="hover:text-yellow-700">
@@ -23,21 +23,23 @@ function Navbar() {
             Nas tim
           </a>
         </li>
-       
+
         <img
           src="/sl2.png"
           alt="Logo"
           className={`w-20 h-20 transition-transform duration-900 ${logoScale}`}
           id="navbar-logo"
         />
-          <li>
-          <a href="#book" className=" text-yellow-700  hover:text-yellow-500"
-           style={{ textShadow: '0 0 10px rgba(255,255,255,0.8)' }}
+        <li>
+          <span
+            className="text-yellow-700 hover:text-yellow-500 cursor-pointer"
+            style={{ textShadow: '0 0 10px rgba(255,255,255,0.8)' }}
+            onClick={() => navigate("/BookNow")}
           >
             Book now!
-          </a>
+          </span>
         </li>
-         <li>
+        <li>
           <a href="#kontakt" className="hover:text-yellow-700">
             Kontakt
           </a>
