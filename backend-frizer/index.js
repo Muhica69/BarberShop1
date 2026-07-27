@@ -1,84 +1,23 @@
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
-const Klijent = require('./models/klijenti');
-const Frizeri = require('./models/frizeri');
-const jwt=require('jsonwebtoken');
-const JWT_SECRET = "tajni_kljuc_koji_ti_samo_ti_znas"; 
-const app = express();
-app.use(express.json());
-app.use(cors());
+import cors from "cors";
+import dotenv from "dotenv";
+import express from "express";
+import connectDB from "./config/db.js";
+import frizeriRoutes from "./routes/adminRoutes.js";
+import klijentiRoutes from "./routes/clientRoutes.js";
+import terminiRoutes from "./routes/terminiRoutes.js";
+import { ensureAvailability } from "./services/availability.js";
 
-mongoose.connect('mongodb://localhost:27017/BarberShop')
-  .then(() => console.log('✅ Povezan na MongoDB'))
-  .catch(err => console.error('❌ Greška pri konekciji na bazu:', err));
-app.post('/login', async (req, res) => {
-  const { username, password } = req.body;
-  const user = await Klijent.findOne({ username: username });
-  if (!user) {
-    return res.status(400).json("User not found");
-  }
-  if (user.password !== password) {
-    return res.status(400).json("Wrong password");
-  }
-   const token = jwt.sign(
-    { id: user._id, username: user.username },
-    JWT_SECRET,
-    { expiresIn: '1h' }
-  );
+dotenv.config();
+const app=express(); const PORT=Number(process.env.PORT)||3001;
+app.disable("x-powered-by");
+app.use(cors({origin:process.env.CLIENT_URL?.split(",")||true,credentials:false}));
+app.use(express.json({limit:"20kb"}));
+app.get("/api/health",(_req,res)=>res.json({status:"ok",timestamp:new Date().toISOString()}));
+app.use("/api/v1/frizeri",frizeriRoutes);
+app.use("/api/v1/klijenti",klijentiRoutes);
+app.use("/api/v1/termini",terminiRoutes);
+app.use((_req,res)=>res.status(404).json({message:"Ruta nije pronađena."}));
+app.use((err,_req,res,_next)=>{console.error(err);res.status(err.status||500).json({message:err.status?err.message:"Interna greška servera."})});
 
-  return res.json({ message: "Success", token });
-});
-
-app.post('/Klijenti', async (req, res) => {
-  try {
-    let { username, email, phone, password } = req.body;
-
-    // Trim + normalizacija
-    username = username && username.trim();
-    email = email && email.trim().toLowerCase(); // standard
-    phone = phone && phone.trim();
-    password = password && password.trim();
-
-    if (!username || !email || !phone || !password) {
-      return res.status(400).json({ message: "Sva polja su obavezna!" });
-    }
-
-    // Provjera postoji li već korisnik
-    const postoji = await Klijent.findOne({
-      $or: [{ username: username }, { email: email }]
-    });
-
-    if (postoji) {
-      if (postoji.username === username && postoji.email === email) {
-        return res.status(400).json({ message: "Korisničko ime i email su zauzeti!" });
-      } else if (postoji.username === username) {
-        return res.status(400).json({ message: "Korisničko ime je zauzeto!" });
-      } else {
-        return res.status(400).json({ message: "Email je već registrovan!" });
-      }
-    }
-
-    // Kreiranje korisnika
-    const klijent = await Klijent.create({ username, email, phone, password });
-    res.json(klijent);
-  } catch (err) {
-    console.error("Greška prilikom registracije:", err);
-    res.status(500).json({ message: "Greška na serveru." });
-  }
-});
-app.get('/api/frizeri', async (req, res) => {
-  try{
-    const frizeri=await Frizeri.find();
-    res.json(frizeri);
-
-  }
-  catch(err){
-    console.error("Greska pri povezivanju",err);
-  res.status(500).json({message:"Greska pri serveru"});
-
-  } });
-
-app.listen(3001, () => {
-  console.log('🚀 Server running on port 3001');
-});
+async function start(){await connectDB();if(!process.env.JWT_SECRET||process.env.JWT_SECRET.length<32)throw new Error("JWT_SECRET mora biti postavljen i imati najmanje 32 znaka.");await ensureAvailability();setInterval(()=>ensureAvailability().catch(console.error),6*60*60*1000).unref();app.listen(PORT,()=>console.log(`API sluša na portu ${PORT}`))}
+start().catch(err=>{console.error("Pokretanje servera nije uspjelo:",err.message);process.exit(1)});

@@ -1,0 +1,12 @@
+import express from "express";
+import mongoose from "mongoose";
+import authMiddleware from "../middlewares/authMiddleware.js";
+import Termin from "../models/termini.js";
+const router=express.Router();router.use(authMiddleware);
+const only=role=>(req,res,next)=>req.user.role===role?next():res.status(403).json({message:"Nemate dozvolu za ovu akciju."});
+router.get("/admin/svi",only("admin"),async(_req,res,next)=>{try{res.json(await Termin.find({datum:{$gte:new Date()}}).populate("frizerId","ime prezime").populate("klijentId","username email phone").sort({datum:1}).lean())}catch(e){next(e)}});
+router.get("/slobodni",only("user"),async(_req,res,next)=>{try{res.json(await Termin.find({klijentId:null,datum:{$gte:new Date()}}).populate("frizerId","ime prezime").sort({datum:1}).lean())}catch(e){next(e)}});
+router.get("/moji",only("user"),async(req,res,next)=>{try{res.json(await Termin.find({klijentId:req.user.id,datum:{$gte:new Date()}}).populate("frizerId","ime prezime").sort({datum:1}).lean())}catch(e){next(e)}});
+router.post("/:id/rezervisi",only("user"),async(req,res,next)=>{try{if(!mongoose.isValidObjectId(req.params.id))return res.status(400).json({message:"Neispravan termin."});const booked=await Termin.findOneAndUpdate({_id:req.params.id,klijentId:null,datum:{$gte:new Date()}},{$set:{klijentId:req.user.id,zauzeto:true}},{new:true}).populate("frizerId","ime prezime");if(!booked)return res.status(409).json({message:"Termin više nije dostupan."});res.status(201).json(booked)}catch(e){next(e)}});
+router.delete("/:id",only("user"),async(req,res,next)=>{try{if(!mongoose.isValidObjectId(req.params.id))return res.status(400).json({message:"Neispravan termin."});const canceled=await Termin.findOneAndUpdate({_id:req.params.id,klijentId:req.user.id},{$set:{klijentId:null,zauzeto:false}},{new:true});if(!canceled)return res.status(404).json({message:"Rezervacija nije pronađena."});res.json({message:"Termin je otkazan."})}catch(e){next(e)}});
+export default router;

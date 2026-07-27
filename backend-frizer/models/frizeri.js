@@ -1,10 +1,13 @@
-const mongoose  = require ("mongoose");
+import mongoose from "mongoose";
+
 const frizerSchema = new mongoose.Schema({
   ime: { type: String, required: true },
   prezime: { type: String, required: true },
-  BrojTermina: { type: Number, required: true },
-  UserName: { type: String, required: true },
-  Password: { type: String, required: true }}, {collection:'Barberi'});
+  BrojTermina: { type: Number, default: 0 },
+  UserName: { type: String },
+  specijalnost: { type: String, default: "Barber & stilista" },
+  role: { type: String, default: "admin" },
+  Password: { type: String },
+  Pasword: { type: String }}, {collection:'Barberi'});
 
-
-module.exports = mongoose.model('Frizeri', frizerSchema);
+export default mongoose.model('Frizeri', frizerSchema);

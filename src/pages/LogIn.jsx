@@ -1,80 +1,36 @@
-import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import { ArrowLeft, Eye, EyeOff, Scissors } from "lucide-react";
 import { useState } from "react";
-function Login() {
+import { Link, useNavigate } from "react-router-dom";
+import api, { errorMessage } from "../api/axios";
 
-  const [username, setUsername] = useState("");
-  const [password, setpassword] = useState("");
+export default function Login() {
   const navigate = useNavigate();
+  const [form, setForm] = useState({ username: "", password: "" });
+  const [show, setShow] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const HandleSubmit = (e) => {
-    e.preventDefault();
-    axios.post('http://localhost:3001/login',{
-      username: username,
-      password: password
-    }).then(result=>{
-      // Očekuje se da backend vraća { token: "..." }
-      const token = result.data.token;
-      if (token) {
-        localStorage.setItem("token", token); // Sačuvaj token
-        navigate('/Select');
-      } else {
-        // Opcionalno: obradi grešku ako nema tokena
-        alert("Pogrešan username ili password!");
-      }
-    }
-  ).catch(err=>(
-    console.log(err),
-    alert("Greška pri loginu!")
-  ))
-
+  async function submit(event) {
+    event.preventDefault(); setError(""); setLoading(true);
+    try {
+      const { data } = await api.post("/klijenti/login", form);
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.klijent));
+      navigate(data.klijent?.role === "admin" ? "/admin" : "/rezervacija");
+    } catch (err) { setError(errorMessage(err)); } finally { setLoading(false); }
   }
-  return (
-    <div
-      className="flex flex-row relative h-screen bg-cover bg-center"
-     
-    >
-        <img
-        src="/bg3.jpg"
-        alt="Pozadina"
-        className="absolute inset-0 w-full h-full object-cover z-0"
-      />
-      <img src="/public/sl2.png" className="absolute top-5 left-5 w-[90px] h-[90px] opacity-50" alt="Background" />
-      <div className="flex items-center justify-center w-full bg-gray-800 bg-opacity-50">
-        <div className="flex flex-col text-center items-ceenter justify-center rounded-lg opacity-80 bg-white w-1/3 h-1/2 shadow p-8">
-          <h1 className="font-poppins text-bold text-[32px] pb-10">Log In</h1>
-          <form onSubmit={HandleSubmit} className="flex flex-col mt-4">
-            <input
-              type="text"
-              placeholder="Username"
-              className="mb-4 p-2 border border-gray-300 rounded"
-              value={username}
-              onChange={e => setUsername(e.target.value)}
-            />
-            <input
-              type="password"
-              placeholder="Password"
-              className="mb-4 p-2 mb-10 border border-gray-300 rounded"
-              value={password}
-              onChange={e => setpassword(e.target.value)}
-            />
-            <button
-              type="submit"
-              className="bg-yellow-700 text-white p-2 rounded hover:bg-yellow-600 border-2 border-yellow-700 shadow transition duration-200"
-            >
-              Log In
-            </button>
-            <p className="font-poppins text-sm p-2 text-silver">Don't have an account? <a className="text-yellow-700"href=""onClick={()=>navigate("/Signup")}>Sign up</a></p>
-            </form>
-        </div> 
-      
-      </div>
-         <button className="absolute bottom-8 left-8 text-lg font-semibold bg-black/50 text-white px-4 py-2 rounded hover:bg-black/70 transition"
-        onClick={() => navigate("/Select1")}
-      >
-        Nazad
-      </button>
-    </div>
-  );
+
+  return <AuthShell title="Dobro došli nazad" subtitle="Prijavite se i odaberite svoj termin.">
+    <form onSubmit={submit} className="auth-form">
+      <label>Korisničko ime<input autoFocus required autoComplete="username" minLength="3" value={form.username} onChange={e=>setForm({...form,username:e.target.value})} /></label>
+      <label>Lozinka<div className="password-field"><input required minLength="8" type={show?"text":"password"} autoComplete="current-password" value={form.password} onChange={e=>setForm({...form,password:e.target.value})}/><button type="button" aria-label="Prikaži lozinku" onClick={()=>setShow(!show)}>{show?<EyeOff/>:<Eye/>}</button></div></label>
+      {error && <p className="form-error" role="alert">{error}</p>}
+      <button className="primary-button" disabled={loading}>{loading?"Prijavljujem...":"Prijavi se"}</button>
+      <p className="auth-switch">Nemate račun? <Link to="/registracija">Registrujte se</Link></p>
+    </form>
+  </AuthShell>;
 }
-export default Login;
+
+export function AuthShell({title,subtitle,children}) {
+  return <main className="auth-page"><div className="auth-overlay"/><Link className="back-link" to="/"><ArrowLeft/> Početna</Link><section className="auth-card"><div className="auth-brand"><Scissors/><span>BARBER.</span></div><p className="eyebrow">ONLINE REZERVACIJE</p><h1>{title}</h1><p className="muted">{subtitle}</p>{children}</section></main>;
+}

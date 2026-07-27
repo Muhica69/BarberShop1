@@ -1,63 +1,25 @@
-import React, { useEffect } from "react";
-import axios from "axios";
+import { ArrowLeft, CalendarDays, Check, Clock3, LogOut, Scissors, Trash2, UserRound } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import api, { errorMessage } from "../api/axios";
 
-export default function Select() {
-  useEffect(() => {
-    axios.get("http://localhost:3001/api/frizeri")
-      .then(res => {
-        const frizeri = res.data;
+const fallbackImages=["/barber1.png","/barber2.png","/barber3.png"];
+const dayFmt=new Intl.DateTimeFormat("bs-BA",{weekday:"short",day:"2-digit",month:"short"});
+const dateFmt=new Intl.DateTimeFormat("bs-BA",{weekday:"long",day:"2-digit",month:"long",hour:"2-digit",minute:"2-digit"});
 
-        if (frizeri[0]) {
-          document.getElementById("fr1").innerText = `${frizeri[0].ime} ${frizeri[0].prezime}`;
-        }
-        if (frizeri[1]) {
-          document.getElementById("fr2").innerText = `${frizeri[1].ime} ${frizeri[1].prezime}`;
-        }
-        if (frizeri[2]) {
-          document.getElementById("fr3").innerText = `${frizeri[2].ime} ${frizeri[2].prezime}`;
-        }
-      })
-      .catch(err => console.error("Greška pri dohvatu frizera:", err));
-  }, []);
-
-  return (
-    <div className="relative flex flex-col items-center justify-center p-8 min-h-screen text-white">
-      <img
-        src="/bg3.jpg"
-        alt="Pozadina"
-        className="absolute inset-0 w-full h-full object-cover z-0"
-      />
-      <div className="relative z-10 flex flex-col items-center">
-        <img src="/sl2.png" alt="LOGO" className="w-[90px] h-[90px]" />
-        <h1 className="text-4xl backdrop-blur-sm p-3 rounded-lg font-bold mb-8">Dobrodošli u naš sistem rezervacija!</h1>
-        <p className="text-lg backdrop-blur-sm p-3 mb-4 rounded-lg">Odaberite Vašeg berbera za nastavak!</p>
-      </div>
-
-      <div className="relative z-10 flex flex-row items-center justify-center w-[80vw] gap-8">
-        <div className="flex flex-col text-center items-center justify-center rounded-lg opacity-90 bg-white w-1/3 shadow p-8">
-          <img src="/barber1.png" alt="Ado" className="w-30 h-38 rounded-lg mb-4" />
-          <h1 id="fr1" className="font-jaro font-bold text-black text-[32px] pb-10"></h1>
-          <button className="bg-yellow-700 text-white p-2 rounded hover:bg-yellow-600 border-2 border-yellow-700 shadow transition duration-200">
-            Odaberi
-          </button>
-        </div>
-
-        <div className="flex flex-col text-center items-center justify-center rounded-lg opacity-90 bg-white w-1/3 shadow p-8">
-          <img src="/barber2.png" alt="Keno" className="w-30 h-38 rounded-lg mb-4" />
-          <h1 id="fr2" className="font-jaro font-bold text-black text-[32px] pb-10"></h1>
-          <button className="bg-yellow-700 text-white p-2 rounded hover:bg-yellow-600 border-2 border-yellow-700 shadow transition duration-200">
-            Odaberi
-          </button>
-        </div>
-
-        <div className="flex flex-col text-center items-center justify-center rounded-lg opacity-90 bg-white w-1/3 shadow p-8">
-          <img src="/barber3.png" alt="Emir" className="w-30 h-38 rounded-lg mb-4" />
-          <h1 id="fr3" className="font-jaro font-bold text-black text-[32px] pb-10"></h1>
-          <button className="bg-yellow-700 text-white p-2 rounded hover:bg-yellow-600 border-2 border-yellow-700 shadow transition duration-200">
-            Odaberi
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+export default function Select(){
+ const navigate=useNavigate(); const [barbers,setBarbers]=useState([]); const [slots,setSlots]=useState([]); const [mine,setMine]=useState([]); const [barber,setBarber]=useState(null); const [slot,setSlot]=useState(null); const [loading,setLoading]=useState(true); const [notice,setNotice]=useState(""); const [error,setError]=useState("");
+ const user=JSON.parse(localStorage.getItem("user")||"null");
+ async function load(){setLoading(true);setError("");try{const [{data:b},{data:s},{data:m}]=await Promise.all([api.get("/frizeri"),api.get("/termini/slobodni"),api.get("/termini/moji")]);setBarbers(b);setSlots(s);setMine(m);}catch(e){if(e.response?.status===401)return navigate("/prijava");setError(errorMessage(e));}finally{setLoading(false)}}
+ useEffect(()=>{load()},[]);
+ const available=useMemo(()=>slots.filter(s=>!barber||String(s.frizerId?._id||s.frizerId)===barber._id),[slots,barber]);
+ const grouped=useMemo(()=>available.reduce((a,s)=>{const k=new Date(s.datum).toDateString();(a[k]??=[]).push(s);return a},{}),[available]);
+ async function reserve(){if(!slot)return;setLoading(true);setError("");try{await api.post(`/termini/${slot._id}/rezervisi`);setNotice("Termin je uspješno rezervisan.");setSlot(null);await load();}catch(e){setError(errorMessage(e));setLoading(false)}}
+ async function cancel(id){if(!confirm("Želite li otkazati ovaj termin?"))return;try{await api.delete(`/termini/${id}`);setNotice("Termin je otkazan.");await load();}catch(e){setError(errorMessage(e))}}
+ function logout(){localStorage.clear();navigate("/")}
+ return <div className="booking-page"><header className="booking-nav"><Link className="brand" to="/"><Scissors/><span>BARBER.</span></Link><div><UserRound/><span>{user?.username||"Moj profil"}</span><button onClick={logout}><LogOut/> Odjava</button></div></header><main className="booking-main"><Link to="/" className="inline-back"><ArrowLeft/> Početna</Link><div className="booking-title"><p className="eyebrow">ONLINE REZERVACIJE</p><h1>Odaberite svoj termin</h1><p>Tri jednostavna koraka do svježeg izgleda.</p></div>{notice&&<div className="success"><Check/>{notice}<button onClick={()=>setNotice("")}>×</button></div>}{error&&<div className="form-error booking-error">{error}<button onClick={load}>Pokušaj ponovo</button></div>}
+ <section className="my-bookings"><h2>Moji termini</h2>{mine.length===0?<p>Nemate predstojećih rezervacija.</p>:<div>{mine.map(t=><article key={t._id}><CalendarDays/><span><strong>{t.frizerId?.ime} {t.frizerId?.prezime}</strong><small>{dateFmt.format(new Date(t.datum))}</small></span><button aria-label="Otkaži termin" onClick={()=>cancel(t._id)}><Trash2/></button></article>)}</div>}</section>
+ <section className="booking-step"><div className="step-label"><span>01</span><div><h2>Odaberite berbera</h2><p>Svaki majstor ima svoj potpis.</p></div></div><div className="barber-picker">{barbers.map((b,i)=><button className={barber?._id===b._id?"selected":""} onClick={()=>{setBarber(b);setSlot(null)}} key={b._id}><img src={fallbackImages[i%3]} alt=""/><span><strong>{b.ime} {b.prezime}</strong><small>{b.specijalnost||"Barber & stilista"}</small></span>{barber?._id===b._id&&<Check/>}</button>)}</div></section>
+ <section className="booking-step"><div className="step-label"><span>02</span><div><h2>Odaberite vrijeme</h2><p>Prikazani su samo slobodni termini.</p></div></div>{!barber?<p className="empty-state">Prvo odaberite berbera.</p>:loading?<p className="empty-state">Učitavanje termina...</p>:Object.keys(grouped).length===0?<p className="empty-state">Trenutno nema slobodnih termina za ovog berbera.</p>:<div className="slot-days">{Object.entries(grouped).map(([day,items])=><div key={day}><h3>{dayFmt.format(new Date(day))}</h3><div>{items.map(s=><button className={slot?._id===s._id?"selected":""} key={s._id} onClick={()=>setSlot(s)}><Clock3/>{new Date(s.datum).toLocaleTimeString("bs-BA",{hour:"2-digit",minute:"2-digit"})}</button>)}</div></div>)}</div>}</section>
+ <div className="booking-submit"><div>{slot?<><small>Odabrani termin</small><strong>{dateFmt.format(new Date(slot.datum))} · {barber.ime}</strong></>:<span>Odaberite berbera i vrijeme za nastavak.</span>}</div><button className="primary-button" disabled={!slot||loading} onClick={reserve}>{loading&&slot?"Rezervišem...":"Potvrdi rezervaciju"}</button></div></main></div>
 }
